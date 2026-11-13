@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # API Key Anda yang sudah tertanam langsung di kode
-GEMINI_API_KEY = "AIzaSyCIJss8NAv5nMNHN39LfBPVAHGkIA5XoOY"
+GEMINI_API_KEY = "AQ.Ab8RN6L0_4PPOA-4MZlKlQMiglQqxUDCzRx2nA8hMGHlS_-ZJg"
 
 # ==========================================
 # FUNGSI EKSTRAKSI & GOOGLE DRIVE HELPER
