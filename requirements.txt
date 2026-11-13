@@ -1,0 +1,7 @@
+streamlit
+google-genai
+pandas
+openpyxl
+pypdf
+python-docx
+requests
