@@ -9,13 +9,16 @@ from google import genai
 from google.genai import types
 
 # ==========================================
-# KONFIGURASI HALAMAN
+# KONFIGURASI HALAMAN & API KEY
 # ==========================================
 st.set_page_config(
     page_title="BPJS Auto-Coder & Pending Resolver",
     page_icon="🏥",
     layout="wide"
 )
+
+# API Key Anda yang sudah tertanam langsung di kode
+GEMINI_API_KEY = "AIzaSyCIJss8NAv5nMNHN39LfBPVAHGkIA5XoOY"
 
 # ==========================================
 # FUNGSI EKSTRAKSI & GOOGLE DRIVE HELPER
@@ -67,7 +70,6 @@ def read_document_text(file_bytes, filename="", content_type=""):
             df = pd.read_excel(file_bytes)
             text = df.to_string(index=False)
         else:
-            # Fallback coba baca sebagai teks biasa atau PDF
             try:
                 reader = PdfReader(file_bytes)
                 for page in reader.pages:
@@ -83,8 +85,8 @@ def read_document_text(file_bytes, filename="", content_type=""):
 # ==========================================
 # FUNGSI AI CODING & ANALISIS PENDING (GEMINI)
 # ==========================================
-def analyze_coding_ai(api_key, medical_text):
-    client = genai.Client(api_key=api_key)
+def analyze_coding_ai(medical_text):
+    client = genai.Client(api_key=GEMINI_API_KEY)
     prompt = f"""
     Anda adalah seorang Senior Clinical Coder & Verifikator Medis Rumah Sakit di Indonesia yang sangat ahli dalam kaidah Koding INA-CBG / iDRG, ICD-10, ICD-9-CM, Permenkes (PMK No. 26 Tahun 2021 tentang Pedoman INA-CBG dan aturan BPJS Kesehatan terbaru), serta PNPK Kemenkes.
 
@@ -112,10 +114,9 @@ def analyze_coding_ai(api_key, medical_text):
     )
     return response.text
 
-def resolve_pending_ai(api_key, pending_df, rm_context=""):
-    client = genai.Client(api_key=api_key)
+def resolve_pending_ai(pending_df, rm_context=""):
+    client = genai.Client(api_key=GEMINI_API_KEY)
     
-    # Mengubah tabel excel menjadi format teks/JSON agar mudah diproses AI
     excel_data_str = pending_df.to_markdown(index=False)
     
     prompt = f"""
@@ -150,17 +151,13 @@ def resolve_pending_ai(api_key, pending_df, rm_context=""):
 st.title("🏥 Sistem Auto-Coding ICD-10/9 & Jawaban Pending BPJS")
 st.markdown("Otomatisasi koding rekam medis dan penyelesaian *dispute/pending* klaim JKN berbasis **PMK & PNPK Terbaru**.")
 
-# Sidebar untuk API Key
+# Sidebar informasi
 with st.sidebar:
-    st.header("⚙️ Pengaturan Sistem")
-    api_key = st.text_input("Masukkan Gemini API Key", type="password", help="Dapatkan gratis di Google AI Studio (aistudio.google.com)")
+    st.header("⚙️ Informasi Sistem")
+    st.success("✅ Gemini API Terhubung Otomatis")
     st.info("💡 **Tips Google Drive:** Pastikan link file/spreadsheet sudah diatur ke **'Anyone with the link' (Siapa saja yang memiliki link)** agar bisa ditarik otomatis.")
     st.markdown("---")
     st.caption("Referensi Regulasi: PMK No. 26/2021, PNPK Kemenkes, Kaidah ICD-10 & ICD-9-CM.")
-
-if not api_key:
-    st.warning("⚠️ Silakan masukkan **Gemini API Key** Anda di menu sebelah kiri (Sidebar) untuk memulai.")
-    st.stop()
 
 # Tab Navigasi Utama
 tab1, tab2 = st.tabs([
@@ -213,7 +210,7 @@ with tab1:
         if st.button("🚀 Generate Kode ICD-10 & ICD-9 Sekarang", type="primary"):
             with st.spinner("Menganalisis klinis & mencocokkan kaidah ICD-10 / ICD-9-CM..."):
                 try:
-                    hasil_coding = analyze_coding_ai(api_key, rm_text_extracted)
+                    hasil_coding = analyze_coding_ai(rm_text_extracted)
                     st.markdown("---")
                     st.markdown(hasil_coding)
                     
@@ -262,8 +259,8 @@ with tab2:
                 df_pending = st.session_state['df_pending_gdrive']
 
     with col2:
-        st.markdown("**2. Bukti Rekam Medis Pendukung (Opsional tapi Direkomendasikan)**")
-        rm_support_url = st.text_input("Link Google Drive Rekam Medis Pasien (Jika ingin dicocokkan langsung dengan RM):")
+        st.markdown("**2. Bukti Rekam Medis Pendukung (Opsional)**")
+        rm_support_url = st.text_input("Link Google Drive Rekam Medis Pasien:")
         rm_support_file = st.file_uploader("Atau Upload File RM Pendukung (PDF/Docx)", type=["pdf", "docx"], key="rm_supp")
         
         rm_support_text = ""
@@ -283,15 +280,10 @@ with tab2:
         if st.button("⚖️ Jawab Semua Pending Sesuai PMK & PNPK", type="primary"):
             with st.spinner("Menyusun argumen medis dan dasar hukum PMK/PNPK untuk seluruh kasus..."):
                 try:
-                    hasil_pending = resolve_pending_ai(api_key, df_pending, rm_support_text)
+                    hasil_pending = resolve_pending_ai(df_pending, rm_support_text)
                     st.markdown("---")
                     st.markdown("### ✅ Hasil Jawaban & Sanggahan Pending BPJS")
                     st.markdown(hasil_pending)
-                    
-                    # Export hasil ke Excel
-                    output_buffer = io.BytesIO()
-                    df_export = df_pending.copy()
-                    df_export["Rekomendasi_Jawaban_AI_PMK_PNPK"] = "Lihat laporan lengkap terlampir"
                     
                     st.download_button(
                         label="📥 Download Laporan Jawaban Pending (.md)",
